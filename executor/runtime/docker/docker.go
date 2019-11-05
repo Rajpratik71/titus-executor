@@ -1284,6 +1284,7 @@ func (r *DockerRuntime) processEFSMounts(c *runtimeTypes.Container) ([]efsMountI
 			cleanMountPoint:            filepath.Clean(configInfo.GetMountPoint()),
 			cleanEfsFsRelativeMntPoint: filepath.Clean(configInfo.GetEfsFsRelativeMntPoint()),
 		}
+		isRealEfsId := strings.HasPrefix(emi.efsFsID, "fs-")
 
 		if emi.cleanEfsFsRelativeMntPoint == "" {
 			emi.cleanMountPoint = "/"
@@ -1300,12 +1301,16 @@ func (r *DockerRuntime) processEFSMounts(c *runtimeTypes.Container) ([]efsMountI
 			return nil, fmt.Errorf("Invalid EFS mount (read/write flag): %+v", configInfo)
 		}
 
-		if r.awsRegion == "" {
-			// We don't validate at client creation time, because we don't get this during testing.
-			return nil, errors.New("Could not retrieve EC2 region")
+		// Non-EFS: pass in the hostname for the NFS server
+		emi.hostname = emi.efsFsID
+		if isRealEfsId {
+			if r.awsRegion == "" {
+				// We don't validate at client creation time, because we don't get this during testing.
+				return nil, errors.New("Could not retrieve EC2 region")
+			}
+			// Get the remote IP. -- Is this really the best way how? Go doesn't have a simpler API for this?
+			emi.hostname = fmt.Sprintf("%s.efs.%s.amazonaws.com", emi.efsFsID, r.awsRegion)
 		}
-		// Get the remote IP. -- Is this really the best way how? Go doesn't have a simpler API for this?
-		emi.hostname = fmt.Sprintf("%s.efs.%s.amazonaws.com", emi.efsFsID, r.awsRegion)
 		// According to go's documentation:
 		// Resolving a hostname is not recommended because this returns at most one of its IP addresses.
 		// It just takes the first IP the resolver returns
@@ -1592,6 +1597,8 @@ func (r *DockerRuntime) setupEFSMounts(parentCtx context.Context, c *runtimeType
 			fmt.Sprintf("MOUNT_OPTIONS=%s", strings.Join(mountOptions, ",")),
 		}
 
+		// XXX
+		log.Infof("MOUNT: opts=%+v, env=%+v", mountOptions, cmd.Env)
 		stdoutStderr, err := cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("Mount failure: %+v: %s", efsMountInfo, string(stdoutStderr))
