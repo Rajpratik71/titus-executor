@@ -24,7 +24,7 @@ static char* get_fs_type() {
 }
 
 int main() {
-	int mnt_ns_fd, net_ns_fd;
+	int mnt_ns_fd, net_ns_fd, user_ns_fd;
 	unsigned long flags_ul;
 	int rc;
 	/*
@@ -34,6 +34,7 @@ int main() {
 	 */
 	const char *mnt_ns = getenv("MOUNT_NS");
 	const char *net_ns = getenv("NET_NS");
+	const char *user_ns = getenv("USER_NS");
 	const char *source = getenv("MOUNT_SOURCE");
 	const char *target = getenv("MOUNT_TARGET");
 	const char *flags = getenv("MOUNT_FLAGS");
@@ -94,6 +95,28 @@ int main() {
 		rc = setns(mnt_ns_fd, CLONE_NEWNS);
 		if (rc) {
 			perror("setns");
+			return 1;
+		}
+	}
+
+	if (user_ns) {
+		user_ns_fd = strtol(user_ns, NULL, 10);
+		if (errno) {
+			perror("user_ns");
+			return 1;
+		}
+		if (user_ns_fd == 0) {
+			fprintf(stderr, "Unable to get user NS fd\n");
+			return 1;
+		}
+		/* Validate that we have this file descriptor */
+		if (fcntl(user_ns_fd, F_GETFD) == -1) {
+			perror("user_ns: f_getfd");
+			return 1;
+		}
+		rc = setns(user_ns_fd, CLONE_NEWUSER);
+		if (rc) {
+			perror("setns: user_ns");
 			return 1;
 		}
 	}
