@@ -10,7 +10,6 @@ require (
 	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
 	github.com/DataDog/datadog-go v3.4.0+incompatible // indirect
 	github.com/Datadog/opencensus-go-exporter-datadog v0.0.0-20190503082300-0f32ad59ab08
-	github.com/Microsoft/go-winio v0.4.11 // indirect
 	github.com/Netflix/metrics-client-go v0.0.0-20171019173821-bb173f41fc07
 	github.com/Netflix/spectator-go v0.0.0-20190913215732-d4e0463555ef
 	github.com/Netflix/titus-api-definitions v0.0.1-rc46.0.20191021181820-7e2e4314c840
@@ -19,6 +18,8 @@ require (
 	github.com/apparentlymart/go-cidr v1.0.0
 	github.com/aws/aws-sdk-go v1.29.8
 	github.com/bombsimon/wsl/v2 v2.1.0 // indirect
+	github.com/containernetworking/cni v0.7.1
+	github.com/containernetworking/plugins v0.8.5 // indirect
 	github.com/coreos/go-systemd v0.0.0-20200109085637-d657f9650837
 	github.com/cyphar/filepath-securejoin v0.0.0-20190205144030-7efe413b52e1
 	github.com/deckarep/golang-set v1.7.1
@@ -78,9 +79,10 @@ require (
 	github.com/tommy-muehle/go-mnd v1.2.0 // indirect
 	github.com/virtual-kubelet/virtual-kubelet v1.0.0
 	github.com/vishvananda/netlink v1.0.1-0.20190930145447-2ec5bdc52b86
-	github.com/vishvananda/netns v0.0.0-20160430053723-8ba1072b58e0
+	github.com/vishvananda/netns v0.0.0-20180720170159-13995c7128cc
 	github.com/wercker/journalhook v0.0.0-20180428041537-5d0a5ae867b3
 	github.com/wsxiaoys/terminal v0.0.0-20160513160801-0940f3fc43a0 // indirect
+	go.etcd.io/bbolt v1.3.3
 	go.opencensus.io v0.22.3
 	golang.org/x/crypto v0.0.0-20200221170553-0f24fbd83dfb
 	golang.org/x/net v0.0.0-20200219183655-46282727080f

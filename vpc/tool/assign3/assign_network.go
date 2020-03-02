@@ -11,12 +11,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/empty"
-
-	"github.com/Netflix/titus-executor/vpc/utilities"
-
-	"github.com/pborman/uuid"
-
 	"github.com/Netflix/titus-executor/api/netflix/titus"
 	"github.com/Netflix/titus-executor/fslocker"
 	"github.com/Netflix/titus-executor/logger"
@@ -24,6 +18,9 @@ import (
 	"github.com/Netflix/titus-executor/vpc/tool/identity"
 	"github.com/Netflix/titus-executor/vpc/tracehelpers"
 	"github.com/Netflix/titus-executor/vpc/types"
+	"github.com/Netflix/titus-executor/vpc/utilities"
+	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/pborman/uuid"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"golang.org/x/sys/unix"

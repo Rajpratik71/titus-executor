@@ -32,7 +32,7 @@ func SetupContainer(ctx context.Context, instanceIdentityProvider identity.Insta
 			return errors.Wrap(err, "Cannot get max network bps, and burst is set")
 		}
 	}
-	link, err := doSetupContainer(ctx, netns, bandwidth, ceil, jumbo, allocation)
+	link, err := DoSetupContainer(ctx, netns, bandwidth, ceil, jumbo, allocation)
 	if err != nil {
 		// warning: Errors unhandled.,LOW,HIGH (gosec)
 		_ = json.NewEncoder(os.Stdout).Encode(types.WiringStatus{Success: false, Error: err.Error()}) // nolint: gosec

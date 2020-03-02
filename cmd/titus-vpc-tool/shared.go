@@ -26,6 +26,7 @@ import (
 )
 
 func addSharedFlags(flags *pflag.FlagSet) {
+	flags.String(stateFileFlagName, "/run/vpc.state", "The bbolt database where the state of the VPC is stored")
 	flags.String(stateDirFlagName, stateDirDefaultValue, "Where do we put the state")
 	flags.String(serviceAddrFlagName, serviceAddrDefaultValue, "VPC service address")
 	flags.String(generationFlagName, generationDefaultValue, "Generation of VPC Tool to use, specify v1, or v2")

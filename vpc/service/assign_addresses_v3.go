@@ -208,6 +208,13 @@ func (vpcService *vpcService) AssignIPV3(ctx context.Context, req *vpcapi.Assign
 	defer span.End()
 	log := ctxlogrus.Extract(ctx)
 	ctx = logger.WithLogger(ctx, log)
+
+	if req.InstanceIdentity == nil || req.InstanceIdentity.InstanceID == "" {
+		err := status.Error(codes.InvalidArgument, "Instance ID is not specified")
+		span.SetStatus(traceStatusFromError(err))
+		return nil, err
+	}
+
 	ctx = logger.WithFields(ctx, map[string]interface{}{
 		"instance": req.InstanceIdentity.InstanceID,
 	})

@@ -116,7 +116,7 @@ func main() {
 					return errors.Wrap(err, "Failed to create the local zipkinEndpoint")
 				}
 				logger.G(ctx).WithField("endpoint", endpoint).WithField("url", zipkinURL).Info("Setting up tracing")
-				reporter := zipkinHTTP.NewReporter(zipkinURL)
+				reporter = zipkinHTTP.NewReporter(zipkinURL)
 
 				ze := zipkin.NewExporter(reporter, endpoint)
 				trace.RegisterExporter(ze)
@@ -180,6 +180,9 @@ func main() {
 	if err := v.BindEnv(sslCertFlagName, "VPC_SSL_CERT"); err != nil {
 		panic(err)
 	}
+	if err := v.BindEnv(stateFileFlagName, "VPC_STATE_FILE"); err != nil {
+		panic(err)
+	}
 
 	rootCmd.AddCommand(assignNetworkCommand(ctx, v, ipr.getProvider))
 	rootCmd.AddCommand(genConfCommand(ctx, v, ipr.getProvider))
@@ -188,6 +191,8 @@ func main() {
 	rootCmd.AddCommand(globalGCCommand(ctx, v))
 	rootCmd.AddCommand(setupContainercommand(ctx, v, ipr.getProvider))
 	rootCmd.AddCommand(gcCommand(ctx, v, ipr.getProvider))
+	rootCmd.AddCommand(cniCommand(ctx, v, ipr.getProvider))
+	rootCmd.AddCommand(stateCmd(ctx, v))
 
 	cobra.OnInitialize(func() {
 		if cfgFile != "" {
