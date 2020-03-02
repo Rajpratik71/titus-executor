@@ -10,6 +10,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/Netflix/titus-executor/logger"
+	vpcapi "github.com/Netflix/titus-executor/vpc/api"
+	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 )
@@ -18,6 +20,18 @@ const (
 	lockTime                        = 30 * time.Second
 	timeBetweenTryingToAcquireLocks = 15 * time.Second
 )
+
+func (vpcService *vpcService) GetLocks(ctx context.Context, empty *empty.Empty) (*vpcapi.GetLocksResponse, error) {
+	return nil, nil
+}
+
+func (vpcService *vpcService) GetLock(ctx context.Context, id *vpcapi.LockId) (*vpcapi.Lock, error) {
+	return nil, nil
+}
+
+func (vpcService *vpcService) DeleteLock(ctx context.Context, id *vpcapi.LockId) (*empty.Empty, error) {
+	return &empty.Empty{}, nil
+}
 
 type keyedItem interface {
 	key() string
