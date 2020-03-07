@@ -10,7 +10,6 @@ import (
 	vpcapi "github.com/Netflix/titus-executor/vpc/api"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gotest.tools/assert"
@@ -52,7 +51,7 @@ func TestAPIShouldGetLocks(t *testing.T) {
 	service := vpcService{db: db}
 
 	ctx := context.Background()
-	res, err := service.GetLocks(ctx, &empty.Empty{})
+	res, err := service.GetLocks(ctx, &vpcapi.GetLocksRequest{})
 	assert.NilError(t, err)
 
 	got := res.GetLocks()[0]

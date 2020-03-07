@@ -46,7 +46,7 @@ func (vpcService *vpcService) readLocks(rows *sql.Rows) ([]*vpcapi.Lock, error) 
 	return locks, nil
 }
 
-func (vpcService *vpcService) GetLocks(ctx context.Context, empty *empty.Empty) (*vpcapi.GetLocksResponse, error) {
+func (vpcService *vpcService) GetLocks(ctx context.Context, req *vpcapi.GetLocksRequest) (*vpcapi.GetLocksResponse, error) {
 	rows, err := vpcService.db.QueryContext(ctx, "SELECT id, lock_name, held_by, held_until FROM long_lived_locks LIMIT 1000")
 	if err != nil {
 		return nil, err

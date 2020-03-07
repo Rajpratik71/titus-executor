@@ -256,6 +256,10 @@ message Lock {
     google.protobuf.Timestamp heldUntil = 4;
 }
 
+message GetLocksRequest {
+
+}
+
 message GetLocksResponse {
     repeated Lock locks = 1;
 }
@@ -278,7 +282,7 @@ service TitusAgentVPCService {
     rpc GCV3 (GCRequestV3) returns (GCResponseV3);
 
     // Lock Management
-    rpc GetLocks(google.protobuf.Empty) returns (GetLocksResponse);
+    rpc GetLocks(GetLocksRequest) returns (GetLocksResponse);
     rpc GetLock(LockId) returns (Lock);
     rpc DeleteLock(LockId) returns (google.protobuf.Empty);
 }
