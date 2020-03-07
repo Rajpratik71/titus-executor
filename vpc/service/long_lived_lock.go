@@ -24,26 +24,24 @@ const (
 	timeBetweenTryingToAcquireLocks = 15 * time.Second
 )
 
-func (vpcService *vpcService) readLocks(rows *sql.Rows) ([]*vpcapi.Lock, error) {
-	locks := []*vpcapi.Lock{}
-	for rows.Next() {
+type scanner interface {
+	Scan(dest ...interface{}) error
+}
 
-		lock := vpcapi.Lock{}
-		var heldUntil time.Time
-		err := rows.Scan(&lock.Id, &lock.LockName, &lock.HeldBy, &heldUntil)
-		if err != nil {
-			return nil, err
-		}
-
-		lock.HeldUntil, err = ptypes.TimestampProto(heldUntil)
-		if err != nil {
-			return nil, err
-		}
-
-		locks = append(locks, &lock)
+func (vpcService *vpcService) scanLock(rowScanner scanner) (*vpcapi.Lock, error) {
+	lock := vpcapi.Lock{}
+	var heldUntil time.Time
+	err := rowScanner.Scan(&lock.Id, &lock.LockName, &lock.HeldBy, &heldUntil)
+	if err != nil {
+		return nil, err
 	}
 
-	return locks, nil
+	lock.HeldUntil, err = ptypes.TimestampProto(heldUntil)
+	if err != nil {
+		return nil, err
+	}
+
+	return &lock, nil
 }
 
 func (vpcService *vpcService) GetLocks(ctx context.Context, req *vpcapi.GetLocksRequest) (*vpcapi.GetLocksResponse, error) {
@@ -53,31 +51,29 @@ func (vpcService *vpcService) GetLocks(ctx context.Context, req *vpcapi.GetLocks
 	}
 	defer rows.Close()
 
-	locks, err := vpcService.readLocks(rows)
-	if err != nil {
-		return nil, err
+	locks := []*vpcapi.Lock{}
+	for rows.Next() {
+		lock, err := vpcService.scanLock(rows)
+		if err != nil {
+			return nil, err
+		}
+		locks = append(locks, lock)
 	}
 
 	return &vpcapi.GetLocksResponse{Locks: locks}, nil
 }
 
 func (vpcService *vpcService) GetLock(ctx context.Context, id *vpcapi.LockId) (*vpcapi.Lock, error) {
-	rows, err := vpcService.db.QueryContext(ctx, "SELECT id, lock_name, held_by, held_until FROM long_lived_locks WHERE id = $1", id.GetId())
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+	row := vpcService.db.QueryRowContext(ctx, "SELECT id, lock_name, held_by, held_until FROM long_lived_locks WHERE id = $1", id.GetId())
 
-	locks, err := vpcService.readLocks(rows)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(locks) == 0 {
+	lock, err := vpcService.scanLock(row)
+	if err == sql.ErrNoRows {
 		return nil, status.Error(codes.NotFound, "lock not found")
+	} else if err != nil {
+		return nil, err
 	}
 
-	return locks[0], nil
+	return lock, nil
 }
 
 func (vpcService *vpcService) DeleteLock(ctx context.Context, id *vpcapi.LockId) (*empty.Empty, error) {
