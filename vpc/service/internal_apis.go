@@ -3,8 +3,9 @@ package service
 import (
 	"context"
 	"database/sql"
-	"github.com/Netflix/titus-executor/logger"
 	"time"
+
+	"github.com/Netflix/titus-executor/logger"
 
 	"github.com/Netflix/titus-executor/aws/aws-sdk-go/aws"
 	vpcapi "github.com/Netflix/titus-executor/vpc/api"
@@ -134,7 +135,7 @@ func (vpcService *vpcService) doAssociateTrunkNetworkInterface(ctx context.Conte
 			logger.G(ctx).WithError(err).Error("Received persistent error, committing current state, and returning error")
 			err2 := tx.Commit()
 			if err2 != nil {
-				logger.G(ctx).WithError(err2).Error( "Failed to commit transaction early due to persistent AWS error")
+				logger.G(ctx).WithError(err2).Error("Failed to commit transaction early")
 			}
 		}
 		span.SetStatus(traceStatusFromError(err))

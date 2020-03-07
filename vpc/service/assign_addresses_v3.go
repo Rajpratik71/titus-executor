@@ -508,7 +508,7 @@ func (vpcService *vpcService) assignIPWithAddENI(ctx context.Context, req *vpcap
 			logger.G(ctx).WithError(err).Error("Received persistent error, committing current state, and returning error")
 			err2 := tx.Commit()
 			if err2 != nil {
-				logger.G(ctx).WithError(err2).Error( "Failed to commit transaction early due to persistent AWS error")
+				logger.G(ctx).WithError(err2).Error("Failed to commit transaction early due to persistent AWS error")
 			}
 			tracehelpers.SetStatus(err, span)
 			return nil, err
