@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var longLivedLockMockRows = sqlmock.NewRows([]string{"id", "lock_name", "held_by", "held_until"})
+var longLivedLockColumns = []string{"id", "lock_name", "held_by", "held_until"}
 
 func generateLockAndRows(t *testing.T, mock sqlmock.Sqlmock) (*vpcapi.Lock, *sqlmock.Rows) {
 	heldUntil := time.Now()
@@ -23,14 +24,15 @@ func generateLockAndRows(t *testing.T, mock sqlmock.Sqlmock) (*vpcapi.Lock, *sql
 		t.Fatalf("unexpected error: %v", err)
 	}
 
+	rand.Seed(time.Now().UnixNano())
 	lock := &vpcapi.Lock{
-		Id:        8222250,
+		Id:        rand.Int63(),
 		LockName:  "branch_eni_associate_nilitem",
 		HeldBy:    "titusvpcservice-cell-instance",
 		HeldUntil: protoHeldUntil,
 	}
 
-	rows := longLivedLockMockRows.AddRow(
+	rows := sqlmock.NewRows(longLivedLockColumns).AddRow(
 		lock.GetId(),
 		lock.GetLockName(),
 		lock.GetHeldBy(),
@@ -66,6 +68,7 @@ func TestAPIShouldGetLocks(t *testing.T) {
 
 func TestAPIShouldGetLock(t *testing.T) {
 	db, mock, err := sqlmock.New()
+
 	if err != nil {
 		t.Fatalf("could not open mock db: %v", err)
 	}
@@ -85,6 +88,10 @@ func TestAPIShouldGetLock(t *testing.T) {
 	if !proto.Equal(expected, got) {
 		t.Fatalf("expected: %v, got %v", expected, got)
 	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
 }
 
 func TestAPIGetLockNotFound(t *testing.T) {
@@ -95,7 +102,7 @@ func TestAPIGetLockNotFound(t *testing.T) {
 	defer db.Close()
 
 	id := int64(1)
-	mock.ExpectQuery("SELECT id, lock_name, held_by, held_until FROM long_lived_locks WHERE id = \\$1").WithArgs(id).WillReturnRows(longLivedLockMockRows)
+	mock.ExpectQuery("SELECT id, lock_name, held_by, held_until FROM long_lived_locks WHERE id = \\$1").WithArgs(id).WillReturnRows(sqlmock.NewRows(longLivedLockColumns))
 
 	service := vpcService{db: db}
 
