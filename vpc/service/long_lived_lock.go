@@ -7,10 +7,13 @@ import (
 	"os"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/Netflix/titus-executor/logger"
 	vpcapi "github.com/Netflix/titus-executor/vpc/api"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -21,15 +24,78 @@ const (
 	timeBetweenTryingToAcquireLocks = 15 * time.Second
 )
 
+func (vpcService *vpcService) readLocks(rows *sql.Rows) ([]*vpcapi.Lock, error) {
+	locks := []*vpcapi.Lock{}
+	for rows.Next() {
+
+		lock := vpcapi.Lock{}
+		var heldUntil time.Time
+		err := rows.Scan(&lock.Id, &lock.LockName, &lock.HeldBy, &heldUntil)
+		if err != nil {
+			return nil, err
+		}
+
+		lock.HeldUntil, err = ptypes.TimestampProto(heldUntil)
+		if err != nil {
+			return nil, err
+		}
+
+		locks = append(locks, &lock)
+	}
+
+	return locks, nil
+}
+
 func (vpcService *vpcService) GetLocks(ctx context.Context, empty *empty.Empty) (*vpcapi.GetLocksResponse, error) {
-	return nil, nil
+	rows, err := vpcService.db.QueryContext(ctx, "SELECT id, lock_name, held_by, held_until FROM long_lived_locks LIMIT 1000")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	locks, err := vpcService.readLocks(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	return &vpcapi.GetLocksResponse{Locks: locks}, nil
 }
 
 func (vpcService *vpcService) GetLock(ctx context.Context, id *vpcapi.LockId) (*vpcapi.Lock, error) {
-	return nil, nil
+	rows, err := vpcService.db.QueryContext(ctx, "SELECT id, lock_name, held_by, held_until FROM long_lived_locks WHERE id = $1", id.GetId())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	locks, err := vpcService.readLocks(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(locks) == 0 {
+		return nil, status.Error(codes.NotFound, "lock not found")
+	}
+
+	return locks[0], nil
 }
 
 func (vpcService *vpcService) DeleteLock(ctx context.Context, id *vpcapi.LockId) (*empty.Empty, error) {
+
+	res, err := vpcService.db.ExecContext(ctx, "DELETE FROM long_lived_locks WHERE id = $1", id.GetId())
+	if err != nil {
+		return nil, err
+	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+
+	if affected == 0 {
+		return nil, status.Error(codes.NotFound, "lock not found")
+	}
+
 	return &empty.Empty{}, nil
 }
 
