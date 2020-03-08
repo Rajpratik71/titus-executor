@@ -46,7 +46,10 @@ func TestAPIShouldGetLocks(t *testing.T) {
 	defer db.Close()
 
 	expected, rows := generateLockAndRows(t, mock)
+
+	mock.ExpectBegin()
 	mock.ExpectQuery("SELECT id, lock_name, held_by, held_until FROM long_lived_locks LIMIT 1000").WillReturnRows(rows)
+	mock.ExpectRollback()
 
 	service := vpcService{db: db}
 
