@@ -55,9 +55,7 @@ func (vpcService *vpcService) GetLocks(ctx context.Context, req *vpcapi.GetLocks
 		span.SetStatus(traceStatusFromError(err))
 		return nil, errors.Wrap(err, "Could not start database transaction")
 	}
-	defer func() {
-		_ = tx.Rollback()
-	}()
+	defer tx.Rollback()
 
 	rows, err := tx.QueryContext(ctx, "SELECT id, lock_name, held_by, held_until FROM long_lived_locks LIMIT 1000")
 	if err != nil {
