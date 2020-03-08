@@ -121,6 +121,34 @@ func (vpcService *vpcService) DeleteLock(ctx context.Context, id *vpcapi.LockId)
 	return &empty.Empty{}, nil
 }
 
+func (vpcService *vpcService) PreemptLock(ctx context.Context, req *vpcapi.PreemptLockRequest) (*empty.Empty, error) {
+	ctx, span := trace.StartSpan(ctx, "PreemptLock")
+	defer span.End()
+
+	// in order to preempt a lock the holder has to be removed from the lock AND held_until has to be set to sometime in the past
+	// by setting held_by to null, we force the current holder to drop the lock
+	// by setting held_until to sometime in the past, we allow a new holder to acquire the lock
+	res, err := vpcService.db.ExecContext(ctx, "UPDATE long_lived_locks SET held_by = null, held_until = now() - (30 * interval '1 sec') WHERE lock_name = $1", req.GetLockName())
+	if err != nil {
+		span.SetStatus(traceStatusFromError(err))
+		return nil, err
+	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		span.SetStatus(traceStatusFromError(err))
+		return nil, err
+	}
+
+	if affected == 0 {
+		err = status.Error(codes.NotFound, "lock not found")
+		span.SetStatus(traceStatusFromError(err))
+		return nil, err
+	}
+
+	return &empty.Empty{}, nil
+}
+
 type keyedItem interface {
 	key() string
 }

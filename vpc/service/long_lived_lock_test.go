@@ -139,3 +139,41 @@ func TestAPIDeleteLockNotFound(t *testing.T) {
 	assert.Equal(t, expected, got)
 	assert.NilError(t, mock.ExpectationsWereMet())
 }
+
+func TestAPIShouldPreemptLock(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	assert.NilError(t, err)
+	defer db.Close()
+
+	service := vpcService{db: db}
+	ctx := context.Background()
+
+	lockName := "branch_eni_associate_nilitem"
+	mock.ExpectExec("UPDATE long_lived_locks SET held_by = null, held_until = now\\(\\) - \\(30 \\* interval '1 sec'\\) WHERE lock_name = \\$1").WithArgs(lockName).WillReturnResult(sqlmock.NewResult(1, 1))
+
+	_, err = service.PreemptLock(ctx, &vpcapi.PreemptLockRequest{LockName: lockName})
+
+	assert.NilError(t, err)
+	assert.NilError(t, mock.ExpectationsWereMet())
+}
+
+func TestAPIPreemptLockNotFound(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	assert.NilError(t, err)
+	defer db.Close()
+
+	lockName := "branch_eni_associate_nilitem"
+	mock.ExpectExec("UPDATE long_lived_locks SET held_by = null, held_until = now\\(\\) - \\(30 \\* interval '1 sec'\\) WHERE lock_name = \\$1").WithArgs(lockName).WillReturnResult(sqlmock.NewResult(0, 0))
+
+	service := vpcService{db: db}
+
+	ctx := context.Background()
+	_, err = service.PreemptLock(ctx, &vpcapi.PreemptLockRequest{LockName: lockName})
+
+	stat := status.Convert(err)
+	got := stat.Code()
+	expected := codes.NotFound
+
+	assert.Equal(t, expected, got)
+	assert.NilError(t, mock.ExpectationsWereMet())
+}

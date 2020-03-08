@@ -264,6 +264,10 @@ message GetLocksResponse {
     repeated Lock locks = 1;
 }
 
+message PreemptLockRequest {
+    string lockName = 1;
+}
+
 service TitusAgentVPCService {
     // This ProvisionInstance function has to be called at startup of the instance, and it is idempotent.
     rpc ProvisionInstance (ProvisionInstanceRequest) returns (ProvisionInstanceResponse);
@@ -285,6 +289,7 @@ service TitusAgentVPCService {
     rpc GetLocks(GetLocksRequest) returns (GetLocksResponse);
     rpc GetLock(LockId) returns (Lock);
     rpc DeleteLock(LockId) returns (google.protobuf.Empty);
+    rpc PreemptLock(PreemptLockRequest) returns (google.protobuf.Empty);
 }
 
 message PrivateKey {
