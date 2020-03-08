@@ -45,10 +45,14 @@ func (vpcService *vpcService) scanLock(rowScanner scanner) (*vpcapi.Lock, error)
 }
 
 func (vpcService *vpcService) GetLocks(ctx context.Context, req *vpcapi.GetLocksRequest) (*vpcapi.GetLocksResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "GetLocks")
+	defer span.End()
+
 	tx, err := vpcService.db.BeginTx(ctx, &sql.TxOptions{
 		ReadOnly: true,
 	})
 	if err != nil {
+		span.SetStatus(traceStatusFromError(err))
 		return nil, errors.Wrap(err, "Could not start database transaction")
 	}
 	defer func() {
@@ -57,6 +61,7 @@ func (vpcService *vpcService) GetLocks(ctx context.Context, req *vpcapi.GetLocks
 
 	rows, err := tx.QueryContext(ctx, "SELECT id, lock_name, held_by, held_until FROM long_lived_locks LIMIT 1000")
 	if err != nil {
+		span.SetStatus(traceStatusFromError(err))
 		return nil, err
 	}
 	defer rows.Close()
@@ -65,6 +70,7 @@ func (vpcService *vpcService) GetLocks(ctx context.Context, req *vpcapi.GetLocks
 	for rows.Next() {
 		lock, err := vpcService.scanLock(rows)
 		if err != nil {
+			span.SetStatus(traceStatusFromError(err))
 			return nil, err
 		}
 		locks = append(locks, lock)
@@ -74,12 +80,18 @@ func (vpcService *vpcService) GetLocks(ctx context.Context, req *vpcapi.GetLocks
 }
 
 func (vpcService *vpcService) GetLock(ctx context.Context, id *vpcapi.LockId) (*vpcapi.Lock, error) {
+	ctx, span := trace.StartSpan(ctx, "GetLock")
+	defer span.End()
+
 	row := vpcService.db.QueryRowContext(ctx, "SELECT id, lock_name, held_by, held_until FROM long_lived_locks WHERE id = $1", id.GetId())
 
 	lock, err := vpcService.scanLock(row)
 	if err == sql.ErrNoRows {
-		return nil, status.Error(codes.NotFound, "lock not found")
+		err = status.Error(codes.NotFound, "lock not found")
+		span.SetStatus(traceStatusFromError(err))
+		return nil, err
 	} else if err != nil {
+		span.SetStatus(traceStatusFromError(err))
 		return nil, err
 	}
 
@@ -87,19 +99,25 @@ func (vpcService *vpcService) GetLock(ctx context.Context, id *vpcapi.LockId) (*
 }
 
 func (vpcService *vpcService) DeleteLock(ctx context.Context, id *vpcapi.LockId) (*empty.Empty, error) {
+	ctx, span := trace.StartSpan(ctx, "DeleteLock")
+	defer span.End()
 
 	res, err := vpcService.db.ExecContext(ctx, "DELETE FROM long_lived_locks WHERE id = $1", id.GetId())
 	if err != nil {
+		span.SetStatus(traceStatusFromError(err))
 		return nil, err
 	}
 
 	affected, err := res.RowsAffected()
 	if err != nil {
+		span.SetStatus(traceStatusFromError(err))
 		return nil, err
 	}
 
 	if affected == 0 {
-		return nil, status.Error(codes.NotFound, "lock not found")
+		err = status.Error(codes.NotFound, "lock not found")
+		span.SetStatus(traceStatusFromError(err))
+		return nil, err
 	}
 
 	return &empty.Empty{}, nil
