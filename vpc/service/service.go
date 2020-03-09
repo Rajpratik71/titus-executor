@@ -328,22 +328,13 @@ func (vpcService *vpcService) getLongLivedTasks() []longLivedTask {
 			itemLister: vpcService.getBranchENIRegionAccounts,
 			workFunc:   vpcService.doGCAttachedENIsLoop,
 		},
-		{
-			taskName:   "delete_excess_branches",
-			itemLister: vpcService.getSubnets,
-			workFunc:   vpcService.deleteExccessBranchesLoop,
-		},
+		vpcService.deleteExcessBranchesLongLivedTask(),
 		{
 			taskName:   "detach_unused_branch_eni",
 			itemLister: nilItemEnumerator,
 			workFunc:   vpcService.detatchUnusedBranchENILoop,
 		},
-		vpcService.reconcileTrunkENIsLongLivedTask(),
-		{
-			taskName:   "reconcile_branch_enis",
-			itemLister: vpcService.getBranchENIRegionAccounts,
-			workFunc:   vpcService.reconcileBranchENILoop,
-		},
+		vpcService.reconcileBranchENIsLongLivedTask(),
 		vpcService.associateActionWorker().longLivedTask(),
 		vpcService.disassociateActionWorker().longLivedTask(),
 	}
