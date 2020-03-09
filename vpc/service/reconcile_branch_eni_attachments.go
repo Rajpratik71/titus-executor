@@ -299,7 +299,6 @@ func (vpcService *vpcService) reconcileBranchENIAttachment(ctx context.Context, 
 	span.AddAttributes(trace.StringAttribute("assocationID", associationID))
 	// 1. Do we know about this association?
 	tx, err := vpcService.db.BeginTx(ctx, &sql.TxOptions{
-		ReadOnly: true,
 		// TODO: Consider making this level serializable
 	})
 	if err != nil {
@@ -410,7 +409,7 @@ func reconcileBranchENIAttachmentMissingFromDatabase(ctx context.Context, tx *sq
 	}
 
 	var dbHasBranchENI bool
-	row = tx.QueryRowContext(ctx, "SELECT branch_eni FROM branch_enis WHERE branch_enis = $1 FOR NO KEY UPDATE", branchENI)
+	row = tx.QueryRowContext(ctx, "SELECT branch_eni FROM branch_enis WHERE branch_eni = $1 FOR NO KEY UPDATE", branchENI)
 	var dbBranchENI string
 	err = row.Scan(&dbBranchENI)
 	if err == nil {
@@ -434,7 +433,7 @@ func reconcileBranchENIAttachmentMissingFromDatabase(ctx context.Context, tx *sq
 	var branchENIUnassociated, trunkENIUnassociated bool
 	if dbHasBranchENI {
 		logger.G(ctx).Warning("branch ENI found in database")
-		row = tx.QueryRowContext(ctx, "SELECT trunk_eni, idx, association_id FROM branch_eni_attachments WHERE branch_eni = $1")
+		row = tx.QueryRowContext(ctx, "SELECT trunk_eni, idx, association_id FROM branch_eni_attachments WHERE branch_eni = $1", branchENI)
 		var dbTrunkENI, dbAssociationID string
 		var idx int
 		err = row.Scan(&dbTrunkENI, &idx, &dbAssociationID)
@@ -452,7 +451,7 @@ func reconcileBranchENIAttachmentMissingFromDatabase(ctx context.Context, tx *sq
 
 	if dbHasTrunkENI {
 		logger.G(ctx).Warning("trunk ENI found in database")
-		row = tx.QueryRowContext(ctx, "SELECT branch_eni, idx, association_id FROM branch_eni_attachments WHERE trunk_eni = $1")
+		row = tx.QueryRowContext(ctx, "SELECT branch_eni, idx, association_id FROM branch_eni_attachments WHERE trunk_eni = $1", trunkENI)
 		var dbBranchENI, dbAssociationID string
 		var idx int
 		err = row.Scan(&dbBranchENI, &idx, &dbAssociationID)
@@ -534,4 +533,12 @@ GROUP BY availability_zones.region, branch_enis.account_id
 	}
 
 	return ret, nil
+}
+
+func (vpcService *vpcService) reconcileBranchENIAttachmentsLongLivedTask() longLivedTask {
+	return longLivedTask{
+		taskName:   "reconcile_branch_eni_attachments",
+		itemLister: vpcService.getTrunkENIRegionAccounts,
+		workFunc:   vpcService.reconcileBranchENIAttachmentLoop,
+	}
 }
