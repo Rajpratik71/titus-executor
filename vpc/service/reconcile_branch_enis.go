@@ -65,7 +65,6 @@ func (vpcService *vpcService) reconcileBranchENIsForRegionAccount(ctx context.Co
 
 	logger.G(ctx).Info("Beginning reconcilation of branch ENIs")
 
-	networkInterfaces := []*ec2.NetworkInterface{}
 	describeNetworkInterfacesInput := ec2.DescribeNetworkInterfacesInput{
 		Filters: []*ec2.Filter{
 			{
@@ -125,7 +124,6 @@ func (vpcService *vpcService) reconcileBranchENIsForRegionAccount(ctx context.Co
 			enis.Insert(networkInterfaceID)
 			networkInterfacesToCheckChan <- ni
 		}
-		networkInterfaces = append(networkInterfaces, describeNetworkInterfacesOutput.NetworkInterfaces...)
 
 		if describeNetworkInterfacesOutput.NextToken == nil {
 			break

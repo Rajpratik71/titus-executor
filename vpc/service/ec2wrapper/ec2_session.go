@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/sync/singleflight"
 	"github.com/Netflix/titus-executor/aws/aws-sdk-go/aws"
 	"github.com/Netflix/titus-executor/aws/aws-sdk-go/aws/session"
 	"github.com/Netflix/titus-executor/aws/aws-sdk-go/service/ec2"
@@ -17,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/trace"
+	"golang.org/x/sync/singleflight"
 	"google.golang.org/grpc/status"
 )
 

@@ -397,25 +397,32 @@ func reconcileBranchENIAttachmentMissingFromDatabase(ctx context.Context, tx *sq
 		return ec2wrapper.HandleEC2Error(err, span)
 	}
 
-	row = tx.QueryRowContext(ctx, "SELECT count(*) FROM trunk_enis WHERE trunk_eni = $1", trunkENI)
-	var trunkENICount int
-	err = row.Scan(&trunkENICount)
-	if err != nil {
+	var dbHasTrunkENI bool
+	row = tx.QueryRowContext(ctx, "SELECT trunk_eni FROM trunk_enis WHERE trunk_eni = $1 FOR NO KEY UPDATE", trunkENI)
+	var dbTrunkENI string
+	err = row.Scan(&dbTrunkENI)
+	if err == nil {
+		dbHasTrunkENI = true
+	} else if err != nil && err != sql.ErrNoRows {
 		err = errors.Wrapf(err, "Could query trunk_enis for trunk ENI %s", trunkENI)
 		tracehelpers.SetStatus(err, span)
 		return err
 	}
 
-	row = tx.QueryRowContext(ctx, "SELECT count(*) FROM branch_enis WHERE branch_enis = $1", branchENI)
-	var branchENICount int
-	err = row.Scan(&branchENICount)
-	if err != nil {
+	var dbHasBranchENI bool
+	row = tx.QueryRowContext(ctx, "SELECT branch_eni FROM branch_enis WHERE branch_enis = $1 FOR NO KEY UPDATE", branchENI)
+	var dbBranchENI string
+	err = row.Scan(&dbBranchENI)
+	if err == nil {
+		dbHasBranchENI = true
+		logger.G(ctx).Debug("Branch ENI not found in database")
+	} else if err != nil && err != sql.ErrNoRows {
 		err = errors.Wrapf(err, "Could query branch_enis for branch ENI %s", branchENI)
 		tracehelpers.SetStatus(err, span)
 		return err
 	}
 
-	if trunkENICount == 0 && branchENICount == 0 {
+	if !dbHasBranchENI && !dbHasTrunkENI {
 		span.SetStatus(trace.Status{
 			Code:    trace.StatusCodeOK,
 			Message: "Branch ENI, nor trunk ENI belong to us",
@@ -424,7 +431,8 @@ func reconcileBranchENIAttachmentMissingFromDatabase(ctx context.Context, tx *sq
 		return nil
 	}
 
-	if branchENICount != 0 {
+	var branchENIUnassociated, trunkENIUnassociated bool
+	if dbHasBranchENI {
 		logger.G(ctx).Warning("branch ENI found in database")
 		row = tx.QueryRowContext(ctx, "SELECT trunk_eni, idx, association_id FROM branch_eni_attachments WHERE branch_eni = $1")
 		var dbTrunkENI, dbAssociationID string
@@ -432,6 +440,7 @@ func reconcileBranchENIAttachmentMissingFromDatabase(ctx context.Context, tx *sq
 		err = row.Scan(&dbTrunkENI, &idx, &dbAssociationID)
 		if err == sql.ErrNoRows {
 			result = multierror.Append(result, errors.New("branch ENI found in database, but unassociated"))
+			branchENIUnassociated = true
 		} else if err != nil {
 			err = errors.Wrapf(err, "Could not query branch_eni_attachments for branch ENI %s", branchENI)
 			tracehelpers.SetStatus(err, span)
@@ -441,7 +450,7 @@ func reconcileBranchENIAttachmentMissingFromDatabase(ctx context.Context, tx *sq
 		}
 	}
 
-	if trunkENICount != 0 {
+	if dbHasTrunkENI {
 		logger.G(ctx).Warning("trunk ENI found in database")
 		row = tx.QueryRowContext(ctx, "SELECT branch_eni, idx, association_id FROM branch_eni_attachments WHERE trunk_eni = $1")
 		var dbBranchENI, dbAssociationID string
@@ -449,6 +458,7 @@ func reconcileBranchENIAttachmentMissingFromDatabase(ctx context.Context, tx *sq
 		err = row.Scan(&dbBranchENI, &idx, &dbAssociationID)
 		if err == sql.ErrNoRows {
 			result = multierror.Append(result, errors.New("trunk ENI found in database, but unassociated"))
+			trunkENIUnassociated = true
 		} else if err != nil {
 			err = errors.Wrapf(err, "Could not query branch_eni_attachments for trunk ENI %s", trunkENI)
 			tracehelpers.SetStatus(err, span)
@@ -456,6 +466,25 @@ func reconcileBranchENIAttachmentMissingFromDatabase(ctx context.Context, tx *sq
 		} else {
 			result = multierror.Append(result, fmt.Errorf("trunk ENI found in database, and meant to be associated to branch ENI %q at idx %d with association ID %q", dbBranchENI, idx, dbAssociationID))
 		}
+	}
+
+	if branchENIUnassociated && trunkENIUnassociated {
+		logger.G(ctx).Info("Branch ENI, and trunk ENI are both unassociated in database, disassociating in AWS")
+		_, err = session.DisassociateTrunkInterface(ctx, ec2.DisassociateTrunkInterfaceInput{
+			AssociationId: association.AssociationId,
+		})
+		awsErr := ec2wrapper.RetrieveEC2Error(err)
+		if err == nil {
+			return nil
+		}
+		err = errors.Wrap(err, "Tried to disassociate dangling association")
+		if awsErr != nil {
+			if awsErr.Code() == ec2wrapper.InvalidAssociationIDNotFound {
+				return nil
+			}
+			return ec2wrapper.HandleEC2Error(err, span)
+		}
+		result = multierror.Append(result, err)
 	}
 
 	return result.ErrorOrNil()
