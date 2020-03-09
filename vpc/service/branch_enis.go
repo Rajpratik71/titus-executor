@@ -81,6 +81,11 @@ func (vpcService *vpcService) associateNetworkInterface(ctx context.Context, tx 
 		return nil, err
 	}
 
+	err = lookupFault(ctx, associateFaultKey).call(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	associationID, err := vpcService.finishAssociation(ctx, tx, session, id)
 	if err != nil {
 		logger.G(ctx).WithError(err).Error("Unable to finish association")
@@ -389,7 +394,7 @@ func (vpcService *vpcService) startAssociation(ctx context.Context, branchENI, t
 		return 0, err
 	}
 
-	logger.G(ctx).Debug("Finished starting disassociation")
+	logger.G(ctx).Debug("Finished starting association")
 
 	return id, nil
 }
@@ -451,6 +456,11 @@ func (vpcService *vpcService) disassociateNetworkInterface(ctx context.Context, 
 	if err != nil {
 		err = errors.Wrap(err, "Unable to start disassociation")
 		tracehelpers.SetStatus(err, span)
+		return err
+	}
+
+	err = lookupFault(ctx, disassociateFaultKey).call(ctx)
+	if err != nil {
 		return err
 	}
 
